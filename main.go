@@ -3,27 +3,50 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
+	"os"
 )
+
+type ServerListItem struct {
+	int
+	string
+}
 
 // Channels
 
 // GetServerChan to submit server name
-var GetServerChan = make(chan struct {
-	int
-	string
-}, 5)
+var GetServerChan = make(chan ServerListItem, 5)
 
 // ParseFilesChan to parse file
 // var ParseServerChan = make(chan string, 5)
 
 // DoneChan to signal intel import is done.
-// var DoneChan = make(chan bool, 1)
+var DoneChan = make(chan bool, 1)
+
+func ParseServer(s *ServerList) (err error) {
+	log.Println("ParseServer Started")
+	var num int
+	var thing ServerListItem
+	for num >= 0 {
+		thing = <-GetServerChan
+		log.Println("Processing: "+fmt.Sprint(thing.int), thing.string)
+		// time.Sleep(time.Millisecond * 125)
+		s.getServerInfo(thing.int, thing.string)
+
+	}
+	DoneChan <- true
+	return nil
+}
+
+// func GetServerNames(s *ServerList, GetServerChan chan ServerListItem) {
+// 	log.Println("GetServerNames Started")
+
+// }
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	s := NewServerList(seedServer)
 	s.getSeedInfo()
+
 	// go s.GetServerNames()
 	// go s.ParseServer()
 	// x := 0
@@ -36,44 +59,31 @@ func main() {
 	// }
 
 	defer close(GetServerChan)
-	// defer close(ParseServerChan)
-	// defer close(DoneChan)
-	go GetServerNames(s)
+
 	go ParseServer(s)
-	// go Stage2()
-}
-
-func ParseServer(s *ServerList) {
-	log.Println("ParseServer Started")
-	for {
-		thing := <-GetServerChan
-		time.Sleep(time.Second * 10)
-		log.Println("Processing: "+fmt.Sprint(thing.int), thing.string)
-	}
-	// return nil
-}
-
-func GetServerNames(s *ServerList) {
-	log.Println("GetServerNames Started")
+	go Ending()
+	log.Println("test")
 
 	for i, p := range s.Peers {
-		GetServerChan <- struct {
-			int
-			string
-		}{i, p}
+		GetServerChan <- ServerListItem{i, p}
 		log.Println("Sent: "+fmt.Sprint(i), p)
 	}
+	// defer close(ParseServerChan)
+	// defer close(DoneChan)
+	// go GetServerNames(s, GetServerChan)
+
 }
 
-// // Stage2 is a goroutine to kick off stage 2
-// func Stage2() {
-// 	for {
-// 		done := <-DoneChan
-// 		if done == true {
-// 			GetData()
-// 		}
-// 	}
-// }
+// Stage2 is a goroutine to kick off stage 2
+func Ending() {
+	for {
+		done := <-DoneChan
+		if done {
+			log.Println("List Done")
+			os.Exit(0)
+		}
+	}
+}
 
 // // GetIntel function to download an Intel file
 // func GetIntel() (err error) {
